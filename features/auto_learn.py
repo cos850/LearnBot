@@ -1,6 +1,6 @@
 from selenium.webdriver.remote.webdriver import WebDriver, WebElement
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoAlertPresentException
+from selenium.common.exceptions import *
 from utils.driver_manager import DriverManager
 from config.settings import COURSE_LIST, Course
 from time import sleep
@@ -31,18 +31,18 @@ def learn():
                 sleep(5)
                 
                 # 미완료 강의들 수강하기
-                studies = _find_uncompleted_studies()
+                lectures = _find_uncompleted_lectures()
                 
                 # 확인용 임시 출력 ------
                 print('수강할 목록: ') 
-                for a_tag in studies:
+                for a_tag in lectures:
                     print(a_tag.find_element(By.TAG_NAME, 'b').text, ': ', a_tag.get_property('href'))
                 print('===============')
                 # -----------------------
                 
-                for study in studies :
-                    print(f'강의 듣기 시작 - {current_course.name}-{study.find_element(By.TAG_NAME, 'b').text}')
-                    _lesten(study)
+                for lecture in lectures :
+                    print(f'강의 듣기 시작 - {current_course.name}-{lecture.find_element(By.TAG_NAME, 'b').text}')
+                    _lesten(lecture)
             
     except Exception as e:
         print("수강 오류")
@@ -57,19 +57,32 @@ def _find_course(value):
 
 
 # 수강할 강의 목록 찾기
-def _find_uncompleted_studies():
+def _find_uncompleted_lectures():
     table = driver.find_element(By.ID, 'dataList')
     
     # 수강이 가능할 경우 a 태그가 있고, fontcolor가 '#588BA5'
-    return table.find_elements(By.XPATH, '//tbody//tr//td[@class="alignL"]//a[font[@color="#588BA5"]]')
+    open_lectures = table.find_elements(By.XPATH, '//tbody//tr//td[@class="alignL"]//a[font[@color="#588BA5"]]')
+    
+    # 진행여부 열에 값이 '완료'인 경우는 제외
+    return [lec for lec in open_lectures if not _isDone(lec)]
+
+def _isDone(lecture):
+    parent_tr = lecture.find_element(By.XPATH, '..').find_element(By.XPATH, '..')
+    status_td = parent_tr.find_elements(By.TAG_NAME, 'td')[4]
+    
+    try :
+        status_span = status_td.find_element(By.TAG_NAME, 'span')
+        return status_span.text == '완료'
+    except NoSuchElementException as e: 
+        return False
     
     
 # 강의 듣기
-def _lesten(study: WebElement):
+def _lesten(lecture: WebElement):
     main_window_handle = driver.current_window_handle
     
     try:
-        study.click()
+        lecture.click()
         
         # 학습 페이지가 새 창으로 띄워짐. 해당 window로 전환
         all_window_handles = driver.window_handles
@@ -96,6 +109,7 @@ def _lesten(study: WebElement):
         while not is_time_fulfilled: 
             print(f'강의 수강 중.... [학습시간{_getPercent()}]')
             sleep(10*60) # 마지막 페이지에서 10분 기다리기
+            is_time_fulfilled = _is_100_percent()
         print('학습 시간 충족. 해당 강의 학습을 종료합니다.')
         
         # 학습 종료 버튼 클릭
@@ -148,7 +162,7 @@ def _selectAnswer(quiz_num):
     answer = quiz_area.find_element(By.ID, 'dap').get_property('value') # 정답 번호 가져오기
     print(f'quiz {quiz_num} - answer : {answer}')
     
-    quiz_area.find_element(By.ID, f'a{answer}').click()                 # 정답 번호 클릭
+    quiz_area.find_element(By.ID, f'a{answer}').click() # 정답 번호 클릭
     
     quiz_area.find_element(By.ID, 'answer_chk').click() # [확인] 버튼 클릭
     quiz_area.find_element(By.ID, 'next').click()       # [다음 문제/결과 확인] 버튼 클릭
