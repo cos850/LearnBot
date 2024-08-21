@@ -1,3 +1,4 @@
+from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from utils.driver_manager import DriverManager
 from config.settings import URL_LOGIN, ID, PW
@@ -5,7 +6,7 @@ import time
 
 def login():
     print('\n로그인 시작')
-    driver = DriverManager.get_driver()
+    driver: WebDriver = DriverManager.get_driver()
     
     try :
         # 웹 사이트 열기
@@ -34,7 +35,8 @@ def login():
         time.sleep(5) # 로그인 후 페이지 로드 대기
         print('로그인 성공')
     except Exception as e:
-        raise RuntimeError('로그인 오류') from e
+        print("로그인 오류", {e})
+        raise
     finally:
         driver.switch_to.default_content()
         print('로그인 프로세스 종료')
