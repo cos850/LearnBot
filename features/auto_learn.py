@@ -1,4 +1,6 @@
 from selenium.webdriver.remote.webdriver import WebDriver, WebElement
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import *
 from utils.driver_manager import DriverManager
@@ -42,8 +44,9 @@ def learn():
                 
                 for lecture in lectures :
                     print(f'강의 듣기 시작 - {current_course.name}-{lecture.find_element(By.TAG_NAME, 'b').text}')
-                    _lesten(lecture)
-            
+                    _play(lecture)
+        
+        print('모든 강의를 수강했습니다.')  
     except Exception as e:
         print("수강 오류")
         traceback.print_exc()
@@ -78,27 +81,20 @@ def _isDone(lecture):
     
     
 # 강의 듣기
-def _lesten(lecture: WebElement):
+def _play(lecture: WebElement):
     main_window_handle = driver.current_window_handle
     
     try:
         lecture.click()
+        sleep(3)
         
         # 학습 페이지가 새 창으로 띄워짐. 해당 window로 전환
         all_window_handles = driver.window_handles
         lecture_window_handle = [handle for handle in all_window_handles if handle != main_window_handle][-1]
         driver.switch_to.window(lecture_window_handle)
-        sleep(2)
         
-        # 메인 학습 frame 내부로 전환
-        driver.switch_to.frame('mainHaksup')
-        
-        # 강의 수강
-        for i in range(11) :
-            _handle_alert()
-            driver.find_element(By.XPATH, '//*[@id="title_frame"]/a[2]').click()    # StaleElementReferenceException 발생해서 계속 찾도록 변경
-            sleep(1)    # 너무 빨리 누르지 않도록 1초에 한 번씩 넘김
-        
+        driver.switch_to.frame('mainHaksup')    # 메인 학습 frame 내부로 전환
+        _progress_all_step()                    # 강의 진행
         
         # 상단바 frame으로 전환 (학습 상태 확인 및 종료)
         driver.switch_to.default_content()
@@ -127,6 +123,15 @@ def _lesten(lecture: WebElement):
         driver.switch_to.window(main_window_handle)
         sleep(2) # 페이지 재로딩 대기
 
+def _progress_all_step():
+    while True :
+        isDone = _handle_alert()
+        if isDone :
+            return
+        else :
+            driver.find_element(By.XPATH, '//*[@id="title_frame"]/a[2]').click()
+            sleep(1)    # 너무 빨리 누르지 않도록 대기
+
 def _is_100_percent():
     return _getPercent() == ': 100%'
 
@@ -135,18 +140,23 @@ def _getPercent():
     return my_study.find_element(By.ID, 'currentTime').text
 
 def _handle_alert():
-    try:
+    try :
         alert = driver.switch_to.alert
-        if alert.text == '평가하기의 모든 문제와 결과보기를 확인하고 진행해주세요!!' :
-            alert.accept()
+        message = alert.text
+        print(f'alert_message: {message}')
+        alert.accept()
+        
+        if '평가하기의 모든 문제와 결과보기를 확인하고 진행해주세요' in message:
             _take_quiz()
-        elif alert.text == '마지막 페이지입니다.' :
-            alert.accept()
-    except NoAlertPresentException:
-        return None
-
+        elif '마지막 페이지입니다' in message:
+            return True
+    except NoAlertPresentException : 
+        return False
+    return False
 
 def _take_quiz():
+    print('퀴즈 풀기')
+    
     # 퀴즈 시작 버튼 클릭
     driver.find_element(By.XPATH, '//a[@id="startBtn"]').click()
     
