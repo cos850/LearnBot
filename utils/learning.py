@@ -8,6 +8,6 @@ class Course:
         self.name = name
         
 class Lecture:
-    def _init_(self, name, tag: WebElement):
+    def __init__(self, name, tag: WebElement):
         self.name = name
         self.tag = tag

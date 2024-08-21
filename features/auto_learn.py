@@ -17,6 +17,11 @@ def learn():
     print('강의 수강 시작')
     try:
         global current_course
+        
+        # TODO : option 개수를 맨 처음 받아와서 해당 개수만큼 반복
+        # TODO : 탐색할 옵션 반환하는 함수를 통해 옵션 찾기 (찾다가 오류나면 다시 option 목록 가져오기 - StaleElementReferenceException)
+        # TODO : 옵션이 반환된 경우 강의 수강 함수 실행
+        
         course_options = driver.find_element(By.ID, 'Select_ApplCnt').find_elements(By.TAG_NAME, 'option')
         go_course_btn = driver.find_element(By.ID, 'btnSelectApplCnt')
         
@@ -28,6 +33,8 @@ def learn():
                 print(f'[{option.text}] 과목에 대한 Course 정보를 찾을 수 없음. 해당 강의 스킵')
             elif current_course.is_completed :
                 print(f'[{current_course.name}] 과목은 이미 수강 완료되었습니다.')
+            elif current_course.name == '대인관계의심리학': # TODO 임시코드 나중에 삭제하기
+                print('임시 대인관계의심리학 제외')
             else :
                 print(f'[{option.text}] 과목의 학습 페이지로 이동합니다.')
                 option.click()
@@ -67,7 +74,7 @@ def _find_uncompleted_lectures() -> List[Lecture]:
     # 수강이 가능할 경우 a 태그가 있고, fontcolor가 '#588BA5'
     open_lectures = table.find_elements(By.XPATH, '//tbody//tr//td[@class="alignL"]//a[font[@color="#588BA5"]]')
     
-    return [Lecture(name=lec.find_element(By.TAG_NAME, 'b').text, tag=lec) for lec in open_lectures if not _isDone(lec)]
+    return [Lecture(lec.find_element(By.TAG_NAME, 'b').text, lec) for lec in open_lectures if not _isDone(lec)]
 
 # 진행 여부 열이 '완료' 되어있는지 확인
 def _isDone(lecture):
@@ -151,20 +158,18 @@ def _handle_alert():
 
 def _close_lecture() :
     driver.switch_to.frame('chkTime')
-    try :
-        # 학습 종료 버튼 클릭
-        driver.find_element(By.XPATH, '//div[@class="myStudy"]/p/a').click()
-        
-        # 학습을 종료하시겠습니까? -> 확인
-        driver.switch_to.alert.accept() 
-        
-        # 종료하기 버튼 클릭
-        driver.switch_to.default_content()
-        driver.switch_to.frame('mainHaksup')
-        
-        driver.execute_script('StopStudy()')
-    finally :
-        driver.switch_to.default_content()
+
+    # 학습 종료 버튼 클릭
+    driver.find_element(By.XPATH, '//div[@class="myStudy"]/p/a').click()
+    
+    # 학습을 종료하시겠습니까? -> 확인
+    driver.switch_to.alert.accept() 
+    
+    # 종료하기 버튼 클릭
+    driver.switch_to.default_content()
+    driver.switch_to.frame('mainHaksup')
+    
+    driver.execute_script('StopStudy()')
 
 def _take_quiz():
     print('퀴즈 풀기')
