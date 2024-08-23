@@ -33,8 +33,6 @@ def learn():
                 print(f'[{option.text}] 과목에 대한 Course 정보를 찾을 수 없음. 해당 강의 스킵')
             elif current_course.is_completed :
                 print(f'[{current_course.name}] 과목은 이미 수강 완료되었습니다.')
-            elif current_course.name == '대인관계의심리학': # TODO 임시코드 나중에 삭제하기
-                print('임시 대인관계의심리학 제외')
             else :
                 print(f'[{option.text}] 과목의 학습 페이지로 이동합니다.')
                 option.click()
