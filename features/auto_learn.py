@@ -11,61 +11,61 @@ import traceback
 
 driver: WebDriver = DriverManager.get_driver()
 course_list = copy.deepcopy(COURSE_LIST)
-current_course: Course = None
 
 def learn():
     print('강의 수강 시작')
     try:
-        global current_course
-        
-        # TODO : option 개수를 맨 처음 받아와서 해당 개수만큼 반복
-        # TODO : 탐색할 옵션 반환하는 함수를 통해 옵션 찾기 (찾다가 오류나면 다시 option 목록 가져오기 - StaleElementReferenceException)
-        # TODO : 옵션이 반환된 경우 강의 수강 함수 실행
-        
-        course_options = driver.find_element(By.ID, 'Select_ApplCnt').find_elements(By.TAG_NAME, 'option')
-        go_course_btn = driver.find_element(By.ID, 'btnSelectApplCnt')
-        
-        for option in course_options :
-            value = option.get_property('value')
+        for course in course_list :
+            course_option = _find_option(course)
             
-            current_course = _find_course(value)
-            if current_course == None : 
-                print(f'[{option.text}] 과목에 대한 Course 정보를 찾을 수 없음. 해당 강의 스킵')
-            elif current_course.is_completed :
-                print(f'[{current_course.name}] 과목은 이미 수강 완료되었습니다.')
-            else :
-                print(f'[{option.text}] 과목의 학습 페이지로 이동합니다.')
-                option.click()
-                go_course_btn.click()
-                sleep(5)
+            if course_option == None :
+                print(f'[{course.name}] 과목에 대한 목록을 찾을 수 없음. 해당 과목 스킵')
+                continue
+            
+            # 해당 과목의 학습실로 이동
+            course_option.click()
+            driver.find_element(By.ID, 'btnSelectApplCnt').click()
+            sleep(2)
+            
+            # 강의 수강
+            _play_all_lectures(course)
                 
-                # 수강할 강의 목록 탐색
-                lectures: List[Lecture] = _find_uncompleted_lectures()
-                
-                print(f'\n=== [{current_course.name}] 미수료 강의 목록 ===') 
-                print('\n'.join(lecture.name for lecture in lectures))
-                print('===========================================\n')
-                
-                for lecture in lectures :
-                    print(f'[{current_course.name}] {lecture.name} 강의 수강 시작')
-                    _play(lecture)
-                    
-                current_course.is_completed = True
-                print(f'{current_course.name} 과목은 완료처리 되었습니다.')
-        
-        print('모든 강의를 수강했습니다.')  
+        print('모든 강의를 수강했습니다.')
     except Exception as e:
-        print("수강 오류")
+        print(f"수강 오류: {e}")
         traceback.print_exc()
         raise
 
+def _find_option(course: Course) :
+    course_options = driver.find_element(By.ID, 'Select_ApplCnt').find_elements(By.TAG_NAME, 'option')
 
-def _find_course(value):
-    for course in course_list :
-            if course.value == value : 
-                return course
+    for option in course_options :
+        if course.value == option.get_property('value') :
+            return option
+    
+
+# 모든 강의 듣기
+def _play_all_lectures(course: Course):
+    uncompleted_lectures = _find_uncompleted_lectures()
+    
+    if not _exist_uncomplete_lecture(course, uncompleted_lectures) :
+        return
+    
+    while uncompleted_lectures :
+        lecture: Lecture = uncompleted_lectures[0]
+        print(f'[{course.name}] 남은 강의 개수: {len(uncompleted_lectures)}')
+        print(f'[{course.name}] {lecture.name} 강의 수강 시작')
+        _play(lecture)
+        
+        # 강의 완료 후 새로고침되므로 다시 목록 찾기
+        sleep(3)
+        uncompleted_lectures = _find_uncompleted_lectures()
+    
+    course.is_completed = True
+    print(f'[{course.name}] 과목은 완료처리 되었습니다.')
 
 
+# 미수료 강의 목록 찾기
 def _find_uncompleted_lectures() -> List[Lecture]: 
     table = driver.find_element(By.ID, 'dataList')
     
@@ -74,9 +74,10 @@ def _find_uncompleted_lectures() -> List[Lecture]:
     
     return [Lecture(lec.find_element(By.TAG_NAME, 'b').text, lec) for lec in open_lectures if not _isDone(lec)]
 
+
 # 진행 여부 열이 '완료' 되어있는지 확인
-def _isDone(lecture):
-    parent_tr = lecture.find_element(By.XPATH, '..').find_element(By.XPATH, '..')
+def _isDone(lecture_option: WebElement):
+    parent_tr = lecture_option.find_element(By.XPATH, '..').find_element(By.XPATH, '..')
     status_td = parent_tr.find_elements(By.TAG_NAME, 'td')[4]
     
     try :
@@ -84,7 +85,21 @@ def _isDone(lecture):
         return status_span.text == '완료'
     except NoSuchElementException as e: 
         return False
-    
+
+
+# 미수료 강의 존재 여부 확인
+def _exist_uncomplete_lecture(course: Course, uncompleted_lectures: List[Lecture]) :
+    # 미완료 강의가 없는 경우 완료 처리 후 스킵
+    if uncompleted_lectures :
+        print(f'\n=== [{course.name}] 미수료 강의 목록 ===') 
+        print('\n'.join(lecture.name for lecture in uncompleted_lectures))
+        print('===========================================\n')
+        return True
+    else :
+        print(f'[{course.name}] 과목은 수강할 강의가 없습니다. 해당 과목 스킵')
+        course.is_completed = True
+        return False
+
     
 # 강의 듣기
 def _play(lecture: Lecture):
@@ -109,7 +124,7 @@ def _play(lecture: Lecture):
     finally: 
         # 기존 창으로 돌아가기
         driver.switch_to.window(main_window_handle)
-        sleep(2) # 페이지 재로딩 대기
+        sleep(2)
 
 
 # 강의 듣기
@@ -163,10 +178,9 @@ def _close_lecture() :
     # 학습을 종료하시겠습니까? -> 확인
     driver.switch_to.alert.accept() 
     
-    # 종료하기 버튼 클릭
+    # main 프레임으로 이동 후 종료하기 버튼 클릭
     driver.switch_to.default_content()
     driver.switch_to.frame('mainHaksup')
-    
     driver.execute_script('StopStudy()')
 
 def _take_quiz():
@@ -185,7 +199,7 @@ def _selectAnswer(quiz_num):
     quiz_area = driver.find_element(By.ID, f'quiz_{quiz_num}')
     
     answer = quiz_area.find_element(By.ID, 'dap').get_property('value') # 정답 번호 가져오기
-    print(f'{current_course.name} quiz {quiz_num} - answer : {answer}')
+    print(f'quiz {quiz_num} - answer : {answer}')
     
     quiz_area.find_element(By.ID, f'a{answer}').click() # 정답 번호 클릭
     
