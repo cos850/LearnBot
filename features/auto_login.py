@@ -1,7 +1,7 @@
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from utils.driver_manager import DriverManager
-from config.settings import URL_LOGIN, ID, PW
+from config.settings import ID, PW
 import time
 
 def login():
@@ -9,13 +9,8 @@ def login():
     driver: WebDriver = DriverManager.get_driver()
     
     try :
-        # 웹 사이트 열기
-        driver.get(URL_LOGIN)
-        time.sleep(5)
-        
-        # iframe 전환
-        loginIframe = driver.find_element(By.XPATH, '//iframe[@id="certframe"]')
-        driver.switch_to.frame(loginIframe)
+        # 로그인 iframe 전환
+        driver.switch_to.frame("certframe")
 
         # 법인 공인인증서 로그인 1단계 : ID 입력
         username_input = driver.find_element(By.ID, 'sub_common_id')
